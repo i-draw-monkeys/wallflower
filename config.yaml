@@ -1,0 +1,138 @@
+# FluidNC configuration for a wall-drawing robot (polargraph)
+# Board: MKS TinyBee V1.0 (ESP32)
+# Two NEMA 17 steppers on X and Y, plus a servo for pen up/down
+
+name: WallRobot
+
+# How much the machine is allowed to round off corners between moves.
+# Smaller = more accurate corners but slower. 0.05 mm is a good default
+junction_deviation_mm: 0.05
+
+# Kinematics does the math to convert an X/Y coordinate into two belt lengths
+# All units here are millimeters (mm)
+kinematics:
+  WallPlotter:              # We have selected WallPlotter which is a preset for Polargraph machines
+    left_axis: 0
+    left_anchor_x: -550.0   # USER CHANGE: here please enter -(Width/2) or one half of the x-axis (negative)
+    left_anchor_y: 870.0    # USER CHANGE: here please enter vertical distance from motor height to home
+    right_axis: 1
+    right_anchor_x: 550.0   # USER CHANGE: here please enter (Width/2) or one half of the x-axis
+    right_anchor_y: 870.0   # USER CHANGE: here please enter the same number as above for left_anchor_y
+    segment_length: 1.0
+
+# --- TinyBee-specific pin expansion --------------------------------------
+i2so:
+  bck_pin: gpio.25
+  data_pin: gpio.27
+  ws_pin: gpio.26
+
+spi:
+  miso_pin: gpio.19
+  mosi_pin: gpio.23
+  sck_pin: gpio.18
+
+sdcard:
+  cs_pin: gpio.5
+  card_detect_pin: NO_PIN
+  frequency_hz: 8000000
+
+stepping:
+  engine: I2S_STATIC
+  idle_ms: 250              # how long motors stay powered after a move stops.
+                            # Use 255 to keep motors ALWAYS ON
+  pulse_us: 4
+  dir_delay_us: 1           # pause after changing direction
+  disable_delay_us: 0
+
+# --- Startup behavior -------------------------------------------------------
+# A wall plotter usually has no limit switches. You position the pen by hand
+# and tell the machine that spot is the origin, so all homing is turned off.
+start:
+  must_home: false
+  deactivate_parking: true
+  check_limits: false
+
+# --- Axes ---------section to adjust direction and speed
+axes:
+  x:
+    steps_per_mm: 80.0                # depends on your belt pitch, pulley teeth
+                                      # and microstepping. 80 suits GT2 belt on a
+                                      # 20-tooth pulley at 1/16 microstepping which is our config
+    max_rate_mm_per_min: 3000.0       # top speed (pretty fast at 3000 for drawing robot if accuracy matters)
+    acceleration_mm_per_sec2: 200.0   # acceleration rate, be aware raising it too high will affect accuracy
+    max_travel_mm: 1100.0             # USER CHANGE: distance between motors
+    soft_limits: false
+    homing:
+      cycle: 0
+      positive_direction: false
+      mpos_mm: 0.0
+      feed_mm_per_min: 100.0
+      seek_mm_per_min: 200.0
+      settle_ms: 500
+      seek_scaler: 1.1
+      feed_scaler: 1.1
+    motor0:
+      hard_limits: false
+      pulloff_mm: 2.0
+      stepstick:
+        step_pin: I2SO.1
+        direction_pin: I2SO.2        # POSSIBLE CHANGE: if you change this to I2SO.2:low it changes the direction it turns
+        disable_pin: I2SO.0
+
+ 
+  # Y = right motor. Same settings, different driver pins.
+  y:
+    steps_per_mm: 80.0
+    max_rate_mm_per_min: 3000.0
+    acceleration_mm_per_sec2: 200.0
+    max_travel_mm: 2000.0            # USER CHANGE: max height of drawing or distance from motors to floor
+    soft_limits: false
+    homing:
+      cycle: 0
+      positive_direction: false
+      mpos_mm: 0.0
+      feed_mm_per_min: 100.0
+      seek_mm_per_min: 200.0
+      settle_ms: 500
+      seek_scaler: 1.1
+      feed_scaler: 1.1
+    motor0:
+      hard_limits: false
+      pulloff_mm: 2.0
+      stepstick:
+        step_pin: I2SO.4
+        direction_pin: I2SO.5       # POSSIBLE CHANGE: if you change this to I2SO.5:low it changes the direction it turns
+        disable_pin: I2SO.3
+
+# --- Unused hardware --------------------------------------------------------
+# FluidNC expects these sections; NO_PIN tells it nothing is connected.
+coolant:
+  flood_pin: NO_PIN
+  mist_pin:  NO_PIN
+        
+probe:
+  pin: gpio.32:low:pu
+
+# --- SERVO SETTINGS -----------------------------------------------------------
+# The servo is configured as if it were a spindle
+# Gcode then controls the pen with spindle speed commands.
+# Different min_pulse_us and max_pulse_us may need to be used for other brands...
+# 
+# As configured the servo will then respond to following gcode commands:
+# M3 S0  is pen up from paper
+# M3 S80 is pen down on paper (can use anything up to S255)
+# If you need to invert motion of servo, invert the values for min_pulse_us and max_pulse_us
+besc:
+  pwm_hz: 50
+  output_pin: gpio.2
+  enable_pin: NO_PIN
+  direction_pin: NO_PIN
+  disable_with_s0: false
+  s0_with_disable: true
+  spinup_ms: 50
+  spindown_ms: 50
+  tool_num: 100
+  speed_map: 0=0.000% 255=100.000%
+  min_pulse_us: 700
+  max_pulse_us: 2200
+  
